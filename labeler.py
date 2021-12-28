@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
         self.w.addItem(y)
         self.w.addItem(z)
 
-    def add_guide_line_gl(self):
+    def add_guide_line_gl(self) -> gl.GLLinePlotItem:
         guide_line_gl = gl.GLLinePlotItem(
             pos=np.array([[0, 0, Params.plane_height], [0, 0, Params.plane_height]]),
             color=(1, 1, 1, 1),
@@ -209,26 +209,26 @@ class MainWindow(QMainWindow):
         self.w.addItem(guide_line_gl)
         return guide_line_gl
 
-    def add_map_cloud_gl(self):
+    def add_map_cloud_gl(self) -> gl.GLScatterPlotItem:
         map_cloud_gl = gl.GLScatterPlotItem(color=[255, 255, 255, 0.2], size=2, pxMode=True)
         map_cloud_gl.setGLOptions('additive')
         self.w.addItem(map_cloud_gl)
         return map_cloud_gl
 
-    def add_curr_cloud_gl(self):
+    def add_curr_cloud_gl(self) -> gl.GLScatterPlotItem:
         curr_cloud_gl = gl.GLScatterPlotItem(color=[255, 0, 0, 0.5], size=2, pxMode=True)
         curr_cloud_gl.setGLOptions('opaque')
         self.w.addItem(curr_cloud_gl)
         return curr_cloud_gl
 
-    def add_label_mesh_gl(self):
+    def add_label_mesh_gl(self) -> gl.GLMeshItem:
         label_mesh_gl = gl.GLMeshItem()
         label_mesh_gl.setGLOptions('translucent')
         label_mesh_gl.setColor((0.3, 1, 0, 0.7))
         self.w.addItem(label_mesh_gl)
         return label_mesh_gl
 
-    def add_label_lines_gl(self):
+    def add_label_lines_gl(self) -> gl.GLLinePlotItem:
         label_lines_gl = gl.GLLinePlotItem(
             pos=np.array([[0, 0, 0]]), color=(0, 0, 0, 0.2), width=2
         )
@@ -236,14 +236,14 @@ class MainWindow(QMainWindow):
         self.w.addItem(label_lines_gl)
         return label_lines_gl
 
-    def add_label_line_gl(self):
+    def add_label_line_gl(self) -> gl.GLLinePlotItem:
         label_line_gl = gl.GLLinePlotItem(
             pos=np.array([[0, 0, Params.plane_height], [0, 0, Params.plane_height]]), color=(0, 0, 1, 1), width=2
         )
         self.w.addItem(label_line_gl)
         return label_line_gl
 
-    def add_info_label(self):
+    def add_info_label(self) -> PyQt5.QtWidgets.QLabel:
         info_label = PyQt5.QtWidgets.QLabel(self)
         info_label.setText('asdfasdf')
         info_label.setStyleSheet('background-color: gray;')
@@ -251,7 +251,7 @@ class MainWindow(QMainWindow):
         info_label.setFixedSize(125, 90)
         return info_label
 
-    def label_to_mesh(self, label: np.ndarray):
+    def label_to_mesh(self, label: np.ndarray) -> (gl.MeshData, np.ndarray):
         beam_num = len(label)
 
         verts = np.zeros((beam_num + 1, 3), dtype=float)
@@ -274,9 +274,8 @@ class MainWindow(QMainWindow):
         self.window_size[0] = ev.size().width()
         self.window_size[1] = ev.size().height()
         self.z_fake = self.window_size[0] / (2 * np.tan(np.deg2rad(0.5 * self.w.opts['fov'])))
-        # print(self.window_size)
 
-    def get_point_on_plane(self, px, py, z):
+    def get_point_on_plane(self, px, py, z) -> (float, float):
         v = np.array([
             [px - self.window_size[0] / 2 + 0.5],
             [py - self.window_size[1] / 2 + 0.5],

@@ -1,19 +1,15 @@
-from typing import List
 import os
-import PyQt5.QtGui
 import PyQt5.QtCore
-import time
 import struct
 import rospy
-
-import pyqtgraph as pg
 import pyqtgraph.opengl as gl
 import numpy as np
+import tf
 from dataset import Dataset
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QLabel
+from PyQt5.QtGui import QKeyEvent, QMouseEvent, QResizeEvent
 from utils.point_cloud_ops import transform_point_cloud
 from utils import transformations
-import tf
 from enum import Enum
 
 
@@ -148,7 +144,7 @@ class MainWindow(QMainWindow):
         self.info_label = self.add_info_label()
         self.info_dict = {'data': '', 'label mode': 'Drag', 'x': 0, 'y': 0, 'z': Params.plane_height}
         self.update_show_info()
-        self.save_msgbox = PyQt5.QtWidgets.QMessageBox()
+        self.save_msgbox = QMessageBox()
 
         # Callbacks
         self.w.keyPressSig.connect(self.key_press_callback)
@@ -243,8 +239,8 @@ class MainWindow(QMainWindow):
         self.w.addItem(label_line_gl)
         return label_line_gl
 
-    def add_info_label(self) -> PyQt5.QtWidgets.QLabel:
-        info_label = PyQt5.QtWidgets.QLabel(self)
+    def add_info_label(self) -> QLabel:
+        info_label = QLabel(self)
         info_label.setText('asdfasdf')
         info_label.setStyleSheet('background-color: gray;')
         info_label.move(0, 0)
@@ -270,7 +266,7 @@ class MainWindow(QMainWindow):
 
         return gl.MeshData(vertexes=verts, faces=faces), pos
 
-    def resizeEvent(self, ev: PyQt5.QtGui.QResizeEvent):
+    def resizeEvent(self, ev: QResizeEvent):
         self.window_size[0] = ev.size().width()
         self.window_size[1] = ev.size().height()
         self.z_fake = self.window_size[0] / (2 * np.tan(np.deg2rad(0.5 * self.w.opts['fov'])))
@@ -302,19 +298,19 @@ class MainWindow(QMainWindow):
                f" z: {self.info_dict['z']:.2f}"
         self.info_label.setText(info)
 
-    def key_press_callback(self, ev: PyQt5.QtGui.QKeyEvent):
+    def key_press_callback(self, ev: QKeyEvent):
         if ev.key() == PyQt5.QtCore.Qt.Key_Period or ev.key() == PyQt5.QtCore.Qt.Key_Comma:
             if self.labeler.changed:
                 reply = self.save_msgbox.information(
                     self,
                     'Warning', 'The label has changed.\nDo you want to save?',
-                    PyQt5.QtWidgets.QMessageBox.Yes | PyQt5.QtWidgets.QMessageBox.No | PyQt5.QtWidgets.QMessageBox.Cancel
+                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
                 )
-                if reply == PyQt5.QtWidgets.QMessageBox.Yes:
+                if reply == QMessageBox.Yes:
                     self.labeler.save()
-                elif reply == PyQt5.QtWidgets.QMessageBox.No:
+                elif reply == QMessageBox.No:
                     pass
-                elif reply == PyQt5.QtWidgets.QMessageBox.Cancel:
+                elif reply == QMessageBox.Cancel:
                     return
 
             if ev.key() == PyQt5.QtCore.Qt.Key_Period:
@@ -345,10 +341,10 @@ class MainWindow(QMainWindow):
         if ev.modifiers() == PyQt5.QtCore.Qt.ControlModifier and ev.key() == PyQt5.QtCore.Qt.Key_S:
             self.labeler.save()
 
-    def key_release_callback(self, ev: PyQt5.QtGui.QKeyEvent):
+    def key_release_callback(self, ev: QKeyEvent):
         pass
 
-    def mouse_press_callback(self, ev: PyQt5.QtGui.QMouseEvent):
+    def mouse_press_callback(self, ev: QMouseEvent):
         if ev.button() == PyQt5.QtCore.Qt.MouseButton.RightButton:
             if self.label_mode == LabelMode.Drag:
                 self.labeling = True
@@ -364,7 +360,7 @@ class MainWindow(QMainWindow):
                     self.label_line_show = False
                     self.label_line_gl.setData(pos=np.array([[0, 0, Params.plane_height], [0, 0, Params.plane_height]]))
 
-    def mouse_move_callback(self, ev: PyQt5.QtGui.QMouseEvent):
+    def mouse_move_callback(self, ev: QMouseEvent):
         x, y = self.get_point_on_plane(ev.x(), ev.y(), Params.plane_height)
         self.info_dict['x'] = x
         self.info_dict['y'] = y
@@ -385,7 +381,7 @@ class MainWindow(QMainWindow):
             self.label_last_pos = (x, y)
             self.update_label_mesh()
 
-    def mouse_release_callback(self, ev: PyQt5.QtGui.QMouseEvent):
+    def mouse_release_callback(self, ev: QMouseEvent):
         if ev.button() == PyQt5.QtCore.Qt.MouseButton.RightButton:
             if self.label_mode == LabelMode.Drag:
                 self.labeling = False

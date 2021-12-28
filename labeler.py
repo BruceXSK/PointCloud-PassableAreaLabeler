@@ -142,7 +142,12 @@ class MainWindow(QMainWindow):
         self.label_lines_gl = self.add_label_lines_gl()
         self.label_line_gl = self.add_label_line_gl()
         self.info_label = self.add_info_label()
-        self.info_dict = {'data': '', 'label mode': 'Drag', 'x': 0, 'y': 0, 'z': Params.plane_height}
+        self.info_dict = {
+            'data': '',
+            'label mode': 'Drag',
+            'fov': self.w.opts['fov'],
+            'x': 0, 'y': 0, 'z': Params.plane_height
+        }
         self.update_show_info()
         self.save_msgbox = QMessageBox()
 
@@ -200,8 +205,9 @@ class MainWindow(QMainWindow):
         guide_line_gl = gl.GLLinePlotItem(
             pos=np.array([[0, 0, Params.plane_height], [0, 0, Params.plane_height]]),
             color=(1, 1, 1, 1),
-            width=2
+            width=3
         )
+        guide_line_gl.setGLOptions('opaque')
         self.w.addItem(guide_line_gl)
         return guide_line_gl
 
@@ -212,8 +218,8 @@ class MainWindow(QMainWindow):
         return map_cloud_gl
 
     def add_curr_cloud_gl(self) -> gl.GLScatterPlotItem:
-        curr_cloud_gl = gl.GLScatterPlotItem(color=[255, 0, 0, 0.5], size=2, pxMode=True)
-        curr_cloud_gl.setGLOptions('opaque')
+        curr_cloud_gl = gl.GLScatterPlotItem(color=[255, 0, 0, 0.8], size=2, pxMode=True)
+        curr_cloud_gl.setGLOptions('translucent')
         self.w.addItem(curr_cloud_gl)
         return curr_cloud_gl
 
@@ -244,7 +250,7 @@ class MainWindow(QMainWindow):
         info_label.setText('asdfasdf')
         info_label.setStyleSheet('background-color: gray;')
         info_label.move(0, 0)
-        info_label.setFixedSize(125, 90)
+        info_label.setFixedSize(125, 100)
         return info_label
 
     def label_to_mesh(self, label: np.ndarray) -> (gl.MeshData, np.ndarray):
@@ -262,7 +268,7 @@ class MainWindow(QMainWindow):
         centers_pos = np.zeros_like(verts_pos)
         centers_pos[:, 2] = Params.plane_height + 0.01
         pos = np.reshape(np.stack((centers_pos, verts_pos), 1), (-1, 3))
-        pos = np.concatenate((pos, np.array([[0, 0, Params.plane_height + 0.01]])), 0)
+        pos = np.concatenate((pos, np.array([[0, 0, Params.plane_height - 0.1]])), 0)
 
         return gl.MeshData(vertexes=verts, faces=faces), pos
 
@@ -293,6 +299,7 @@ class MainWindow(QMainWindow):
     def update_show_info(self):
         info = f" data: {self.info_dict['data']}\n" \
                f" label mode: {self.info_dict['label mode']}\n" \
+               f" fov: {self.info_dict['fov']:.2f}\n" \
                f" x: {self.info_dict['x']:.2f}\n" \
                f" y: {self.info_dict['y']:.2f}\n" \
                f" z: {self.info_dict['z']:.2f}"
@@ -397,6 +404,10 @@ class MainWindow(QMainWindow):
             transformations.euler_matrix(
                 -np.deg2rad(self.w.opts['azimuth']), -np.deg2rad(self.w.opts['elevation']), 0, 'ryxz'
             )[:3, :3]
+
+        self.z_fake = self.window_size[0] / (2 * np.tan(np.deg2rad(0.5 * self.w.opts['fov'])))
+        self.info_dict['fov'] = self.w.opts['fov']
+        self.update_show_info()
 
         if Params.ros_tf_pub:
             self.br.sendTransform(

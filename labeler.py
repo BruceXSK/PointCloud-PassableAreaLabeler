@@ -1,13 +1,15 @@
 import os
-import PyQt5.QtCore
 import struct
 import rospy
 import pyqtgraph.opengl as gl
 import numpy as np
 import tf
+import time
+from typing import List
 from dataset import Dataset
-from PyQt5.QtWidgets import QMainWindow, QMessageBox, QLabel
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QLabel, QApplication
 from PyQt5.QtGui import QKeyEvent, QMouseEvent, QResizeEvent
+from PyQt5 import QtCore
 from utils.point_cloud_ops import transform_point_cloud
 from utils import transformations
 from enum import Enum
@@ -22,7 +24,8 @@ class Params:
     ros_tf_pub = False
     border_points_num = 384
     max_distance = 15.
-    plane_height = -0.57
+    plane_height = -0.8
+    filter_point_cloud_z = 2
 
 
 def parse_label(path: str, border_points_num: int) -> np.ndarray:
@@ -48,7 +51,7 @@ class Labeler:
 
     def get_label_data(self, idx: int):
         self.data_idx = idx
-        print(f'Labeling the {idx} data')
+        print(f'[{time.strftime("%H:%M:%S", time.localtime())}] Labeling the {idx} data')
         pc, pose, self.label_file_path, file_name = self.dataset[idx]
         src_pose = np.array([0, 0, 0, 0, 0, 0, 1])
         map_transformed = transform_point_cloud(self.dataset.map, src_pose, pose)
@@ -93,7 +96,7 @@ class Labeler:
                 if reset:
                     self.label_data[np.asarray(ring, dtype=np.uint)] = Params.max_distance
                 else:
-                    th_indices = np.asarray(ring[1:-1], dtype=np.uint)
+                    th_indices = np.asarray(ring, dtype=np.uint)
                     ks = self.k_list[th_indices]
 
                     if v[0] != 0:
@@ -105,8 +108,8 @@ class Labeler:
                     ys = ks * xs
                     rs = np.hypot(xs, ys)
                     self.label_data[th_indices] = rs
-                    self.label_data[th_idx0] = r0
-                    self.label_data[th_idx1] = r1
+                    # self.label_data[th_idx0] = r0
+                    # self.label_data[th_idx1] = r1
         else:  # Start and end are in the same sector
             if reset:
                 self.label_data[th_idx1] = Params.max_distance
@@ -133,6 +136,8 @@ class MainWindow(QMainWindow):
         # Window initialization
         self.resize(1280, 720)
         self.w = gl.GLViewWidget()
+        self.w.opts['fov'] = 1.0
+        self.w.opts['distance'] = 200.0
         self.setCentralWidget(self.w)
         self.add_axis_gl(1, 5)
         self.guide_line_gl = self.add_guide_line_gl()
@@ -197,6 +202,9 @@ class MainWindow(QMainWindow):
                               antialias=True)
         z = gl.GLLinePlotItem(pos=np.array([[0, 0, 0], [0, 0, length]]), color=(0, 0, 1, 1), width=width,
                               antialias=True)
+        x.setGLOptions('opaque')
+        y.setGLOptions('opaque')
+        z.setGLOptions('opaque')
         self.w.addItem(x)
         self.w.addItem(y)
         self.w.addItem(z)
@@ -219,7 +227,7 @@ class MainWindow(QMainWindow):
 
     def add_curr_cloud_gl(self) -> gl.GLScatterPlotItem:
         curr_cloud_gl = gl.GLScatterPlotItem(color=[255, 0, 0, 0.8], size=2, pxMode=True)
-        curr_cloud_gl.setGLOptions('translucent')
+        curr_cloud_gl.setGLOptions('opaque')
         self.w.addItem(curr_cloud_gl)
         return curr_cloud_gl
 
@@ -232,7 +240,7 @@ class MainWindow(QMainWindow):
 
     def add_label_lines_gl(self) -> gl.GLLinePlotItem:
         label_lines_gl = gl.GLLinePlotItem(
-            pos=np.array([[0, 0, 0]]), color=(0, 0, 0, 0.2), width=2
+            pos=np.array([[0, 0, 0]]), color=(0, 0, 0, 0.4), width=2
         )
         label_lines_gl.setGLOptions('translucent')
         self.w.addItem(label_lines_gl)
@@ -306,7 +314,7 @@ class MainWindow(QMainWindow):
         self.info_label.setText(info)
 
     def key_press_callback(self, ev: QKeyEvent):
-        if ev.key() == PyQt5.QtCore.Qt.Key_Period or ev.key() == PyQt5.QtCore.Qt.Key_Comma:
+        if ev.key() == QtCore.Qt.Key_Period or ev.key() == QtCore.Qt.Key_Comma:
             if self.labeler.changed:
                 reply = self.save_msgbox.information(
                     self,
@@ -320,7 +328,7 @@ class MainWindow(QMainWindow):
                 elif reply == QMessageBox.Cancel:
                     return
 
-            if ev.key() == PyQt5.QtCore.Qt.Key_Period:
+            if ev.key() == QtCore.Qt.Key_Period:
                 curr_cloud, map_cloud, label, file_name = self.labeler.next()
             else:
                 curr_cloud, map_cloud, label, file_name = self.labeler.last()
@@ -333,7 +341,7 @@ class MainWindow(QMainWindow):
             self.info_dict['data'] = file_name
             self.update_show_info()
 
-        if ev.key() == PyQt5.QtCore.Qt.Key_L:
+        elif ev.key() == QtCore.Qt.Key_L:
             if self.label_mode == LabelMode.Drag:
                 self.label_mode = LabelMode.Line
                 self.info_dict['label mode'] = 'Line'
@@ -345,14 +353,20 @@ class MainWindow(QMainWindow):
                 self.info_dict['label mode'] = 'Drag'
             self.update_show_info()
 
-        if ev.modifiers() == PyQt5.QtCore.Qt.ControlModifier and ev.key() == PyQt5.QtCore.Qt.Key_S:
+        elif ev.modifiers() == QtCore.Qt.ControlModifier and ev.key() == QtCore.Qt.Key_S:
             self.labeler.save()
+            
+        elif ev.key() == QtCore.Qt.Key_Escape:
+            self.labeling = False
+            self.label_line_points.clear()
+            self.label_line_show = False
+            self.label_line_gl.setData(pos=np.array([[0, 0, Params.plane_height], [0, 0, Params.plane_height]]))
 
     def key_release_callback(self, ev: QKeyEvent):
         pass
 
     def mouse_press_callback(self, ev: QMouseEvent):
-        if ev.button() == PyQt5.QtCore.Qt.MouseButton.RightButton:
+        if ev.button() == QtCore.Qt.MouseButton.RightButton:
             if self.label_mode == LabelMode.Drag:
                 self.labeling = True
                 self.label_last_pos = self.get_point_on_plane(ev.x(), ev.y(), Params.plane_height)
@@ -382,14 +396,14 @@ class MainWindow(QMainWindow):
             ]))
         if self.labeling:
             reset = False
-            if PyQt5.QtWidgets.QApplication.keyboardModifiers() == PyQt5.QtCore.Qt.ShiftModifier:
+            if QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier:
                 reset = True
             self.labeler.set_label_line(self.label_last_pos, (x, y), reset)
             self.label_last_pos = (x, y)
             self.update_label_mesh()
 
     def mouse_release_callback(self, ev: QMouseEvent):
-        if ev.button() == PyQt5.QtCore.Qt.MouseButton.RightButton:
+        if ev.button() == QtCore.Qt.MouseButton.RightButton:
             if self.label_mode == LabelMode.Drag:
                 self.labeling = False
                 self.label_last_pos = None

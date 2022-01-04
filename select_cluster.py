@@ -10,7 +10,7 @@ from dataset import parse_point_cloud
 class Params:
     frame_num = 5
     t_thresh_temporal = 1.0
-    t_thresh_data = 0.5
+    t_thresh_data = 2.0
 
 
 def matrix_to_rt(mat: np.ndarray):
@@ -83,9 +83,10 @@ def save_clusters(path: str, clusters: List[List[int]]):
 
 
 def main():
-    pcd_dir = 'data/IB-2L/pcd'
-    pos_dir = 'data/IB-2L/ndt_pose'
-    data_to_label_save_path = 'data/IB-2L/data_to_label.txt'
+    data_series_name = 'IB-NorthEast'
+    pcd_dir = f'data/{data_series_name}/pcd'
+    pos_dir = f'data/{data_series_name}/ndt_pose'
+    data_to_label_save_path = f'data/{data_series_name}/data_to_label.txt'
     pose_files = sorted(os.listdir(pos_dir))
     pose_list = []
     pc_path_list = []
@@ -96,15 +97,15 @@ def main():
 
     save_clusters(data_to_label_save_path, clusters)
     # for cluster in clusters:
-    # pc_o3d_list = []
-    # for i, idx in enumerate(cluster):
-    #     pc_np = parse_point_cloud(pc_path_list[idx])
-    #     pc_o3d = o3d.geometry.PointCloud()
-    #     if i != 0:
-    #         pc_np = pc_ops.transform_point_cloud(pc_np, pose_list[idx], pose_list[cluster[0]])
-    #     pc_o3d.points = o3d.utility.Vector3dVector(pc_np)
-    #     pc_o3d_list.append(pc_o3d)
-    # o3d.visualization.draw_geometries(pc_o3d_list)
+    #     pc_o3d_list = []
+    #     for i, idx in enumerate(cluster):
+    #         pc_np = parse_point_cloud(pc_path_list[idx])
+    #         pc_o3d = o3d.geometry.PointCloud()
+    #         if i != 0:
+    #             pc_np = pc_ops.transform_point_cloud(pc_np, pose_list[idx], pose_list[cluster[0]])
+    #         pc_o3d.points = o3d.utility.Vector3dVector(pc_np)
+    #         pc_o3d_list.append(pc_o3d)
+    #     o3d.visualization.draw_geometries(pc_o3d_list)
 
 
 if __name__ == '__main__':
